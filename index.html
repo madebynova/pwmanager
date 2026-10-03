@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08080b;
+      --bg-glow: radial-gradient(ellipse 80% 50% at 70% -20%, rgba(99, 102, 241, 0.12), transparent),
+                 radial-gradient(ellipse 60% 40% at 10% 100%, rgba(139, 92, 246, 0.08), transparent),
+                 linear-gradient(180deg, #0a0a0e 0%, #08080b 100%);
+      --surface: linear-gradient(165deg, #15151b 0%, #121218 100%);
+      --surface2: linear-gradient(180deg, #1c1c24 0%, #18181f 100%);
+      --border: rgba(255, 255, 255, 0.06);
+      --border-bright: rgba(255, 255, 255, 0.1);
+      --text: #f4f4f8;
+      --textMuted: #8b8b9e;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --danger: #f43f5e;
+      --danger-glow: rgba(244, 63, 94, 0.25);
+      --success: #10b981;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+      --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+      --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 40px -8px var(--accent-glow);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      background-image: var(--bg-glow);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+    }
+    .screen.active { display: flex; align-items: center; justify-content: center; }
+    #screenHome.active { align-items: flex-start; padding: 2rem; overflow-y: auto; }
+    .home-card { max-width: 480px; width: 100%; margin: 0; }
+    .dashboard-subtitle { color: var(--textMuted); margin: 0 0 1.25rem 0; font-size: 0.9375rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+    @media (max-width: 520px) { .dashboard-grid { grid-template-columns: 1fr 1fr; } }
+    .dashboard-stat { background: rgba(28,28,36,0.6); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 0.75rem; text-align: center; transition: border-color 0.2s ease, background 0.2s ease; }
+    .dashboard-stat:hover { background: rgba(36,36,48,0.7); border-color: var(--border-bright); }
+    .dashboard-stat .stat-value { display: block; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: var(--accent-light); }
+    .dashboard-stat .stat-label { font-size: 0.6875rem; color: var(--textMuted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.2rem; }
+    .dashboard-strength-row { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .dashboard-actions { margin-top: 1.25rem; }
+    .strength-circle-wrap { position: relative; width: 100px; height: 100px; }
+    .strength-circle { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .strength-circle .strength-bg { fill: none; stroke: var(--border); stroke-width: 3; }
+    .strength-circle .strength-fill { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+    .strength-circle-value { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.125rem; font-weight: 700; color: var(--text); }
+    .grade-wrap { text-align: center; }
+    .grade-label { display: block; font-size: 0.75rem; color: var(--textMuted); }
+    .grade-letter { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--success); }
+    .grade-letter.grade-a { color: var(--success); }
+    .grade-letter.grade-b { color: #22c55e; }
+    .grade-letter.grade-c { color: #eab308; }
+    .grade-letter.grade-d { color: #f97316; }
+    .grade-letter.grade-f { color: var(--danger); }
+
+    .screen#screenSetup .card,
+    .screen#screenUnlock .card {
+      width: 100%;
+      max-width: 440px;
+      margin: 2rem;
+      box-shadow: var(--shadow-card), 0 0 60px -12px rgba(99, 102, 241, 0.15);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 2rem;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card.card-tilt:hover {
+      transform: perspective(800px) rotateX(1deg) rotateY(1deg);
+      box-shadow: var(--shadow-hover);
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      pointer-events: none;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem 0; letter-spacing: -0.03em; }
+    h2 { font-size: 0.8125rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--textMuted); text-transform: uppercase; letter-spacing: 0.08em; }
+    label { display: block; margin-bottom: 0.4rem; color: var(--textMuted); font-size: 0.8125rem; font-weight: 500; }
+    input[type="text"], input[type="password"], input[type="email"], select, textarea {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1rem;
+      background: rgba(28, 28, 36, 0.8);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 0.9375rem;
+      font-family: inherit;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    button {
+      padding: 0.65rem 1.1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, #5558e3 100%);
+      color: #fff;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+      filter: brightness(1.05);
+    }
+    button:active { transform: translateY(0); }
+    button.secondary {
+      background: rgba(28, 28, 36, 0.9);
+      color: var(--text);
+      border: 1px solid var(--border-bright);
+      box-shadow: none;
+    }
+    button.secondary:hover {
+      background: rgba(36, 36, 46, 0.95);
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }
+    button.danger {
+      background: linear-gradient(135deg, var(--danger) 0%, #e11d48 100%);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--danger-glow);
+    }
+    button.danger:hover { box-shadow: 0 4px 20px var(--danger-glow); }
+    .error { color: var(--danger); font-size: 0.8125rem; margin-top: 0.5rem; }
+    .hidden { display: none !important; }
+    #fileImport { display: none; }
+
+    .vault-layout {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+      width: 100%;
+      height: 100%;
+      padding: 1.5rem 2rem;
+      overflow: hidden;
+    }
+    .vault-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .vault-header-inner { display: flex; flex-direction: column; gap: 0.25rem; }
+    .vault-header h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text) 0%, var(--textMuted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .vault-welcome { margin: 0; font-size: 0.875rem; color: var(--textMuted); font-weight: 500; }
+    .vault-welcome:not(.hidden) { display: block; }
+    .vault-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+    .vault-sidebar::-webkit-scrollbar { width: 6px; }
+    .vault-sidebar::-webkit-scrollbar-track { background: transparent; }
+    .vault-sidebar::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+    .vault-sidebar > .card { flex-shrink: 0; }
+    .vault-main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      margin-left: 1.25rem;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .password-field-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .password-field-row input { flex: 1; min-width: 120px; }
+    .btn-eye {
+      padding: 0.5rem;
+      min-width: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--textMuted);
+      transition: color 0.2s ease;
+    }
+    .btn-eye:hover { color: var(--accent-light); }
+    .btn-eye .eye-open,
+    .btn-eye .eye-closed { display: none; }
+    .btn-eye.showing .eye-open { display: inline-block; }
+    .btn-eye.showing .eye-closed { display: none; }
+    .btn-eye:not(.showing) .eye-open { display: none; }
+    .btn-eye:not(.showing) .eye-closed { display: inline-block; }
+    .btn-eye svg { width: 20px; height: 20px; vertical-align: middle; }
+    .form-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .generator-box {
+      background: rgba(28, 28, 36, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+    }
+    .generator-box label { margin-bottom: 0.35rem; font-size: 0.8125rem; }
+    .generator-options { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin: 0.5rem 0 0.75rem 0; }
+    .generator-options label { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.875rem; }
+    .generator-options input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--accent); }
+    .strength { font-size: 0.8125rem; margin: 0.5rem 0 0.75rem 0; }
+    .strength.weak { color: var(--danger); }
+    .strength.medium { color: #f59e0b; }
+    .strength.strong { color: var(--success); }
+    .settings-panel { padding-top: 1.25rem; border-top: 1px solid var(--border); }
+    .settings-panel h2 { margin-bottom: 0.5rem; }
+    .settings-panel .form-actions { margin-top: 0.5rem; }
+    .remember-row { margin: 1rem 0 0 0; }
+    .remember-row label { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 0.875rem; cursor: pointer; }
+    .remember-row input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--accent); }
+    .changelog-panel { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+    .changelog-panel h2 { margin-bottom: 0.5rem; cursor: pointer; user-select: none; }
+    .changelog-panel h2::after { content: ' ▼'; font-size: 0.75em; opacity: 0.7; }
+    .changelog-panel h2.collapsed::after { content: ' ▶'; }
+    .changelog-content { max-height: 280px; overflow-y: auto; font-size: 0.8125rem; line-height: 1.6; margin-top: 0.5rem; padding-right: 0.25rem; }
+    .changelog-content::-webkit-scrollbar { width: 5px; }
+    .changelog-content::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+    .changelog-content.collapsed { display: none; }
+    .changelog-entry { margin-bottom: 1rem; }
+    .changelog-date { color: var(--accent); font-weight: 600; margin-bottom: 0.25rem; }
+    .changelog-bullet { color: var(--text); margin-left: 0.5rem; margin-bottom: 0.2rem; }
+    .changelog-bullet::before { content: '• '; color: var(--success); }
+    .entry-item .entry-tags-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+    .entry-tag-pill {
+      font-size: 0.6875rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      opacity: 0.92;
+    }
+    .btn-pin {
+      padding: 0.45rem;
+      min-width: 36px;
+      color: var(--textMuted);
+      transition: color 0.2s ease;
+    }
+    .btn-pin:hover { color: var(--accent-light); }
+    .btn-pin.pinned { color: var(--accent); }
+    .entry-item mark { background: var(--accent-glow); color: inherit; border-radius: 2px; padding: 0 0.15em; }
+    .entry-tags-form-row .entry-tags-row-form { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; min-height: 1.5rem; }
+    .entry-tags-form-row .tag-picker-wrap select { background: rgba(28,28,36,0.8); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 0.4rem; }
+    .tag-add-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; }
+    .tag-add-row input[type="text"] { flex: 1; min-width: 120px; margin-bottom: 0; }
+    .tag-add-row input[type="color"] { width: 40px; height: 36px; padding: 2px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; }
+    .tags-list { margin-top: 0.5rem; }
+    .tags-list .tag-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: rgba(28,28,36,0.5); border-radius: var(--radius-sm); }
+    .tags-list .tag-row .tag-name { flex: 1; font-size: 0.875rem; }
+    .tags-list .tag-row .tag-color-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); }
+    .settings-main-title { margin-bottom: 1rem; font-size: 1rem; }
+    .settings-section {
+      background: rgba(28, 28, 36, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .settings-section-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--textMuted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 0.75rem 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-row { margin-bottom: 0.75rem; }
+    .settings-row:last-child { margin-bottom: 0; }
+    .settings-row label { display: block; margin-bottom: 0.35rem; font-size: 0.8125rem; color: var(--textMuted); }
+    .settings-row select { margin-bottom: 0; max-width: 100%; min-width: 0; }
+    .settings-input { margin-bottom: 0; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 500px) { .settings-grid { grid-template-columns: 1fr; } }
+    .settings-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .settings-actions .danger { order: 99; }
+    .shortcuts-hint { font-size: 0.8125rem; color: var(--textMuted); margin: 0 0 0.75rem 0; }
+    .shortcuts-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+    .shortcut-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .shortcut-label { flex: 1; min-width: 120px; font-size: 0.875rem; }
+    .shortcut-kbd { background: rgba(0,0,0,0.35); padding: 0.35rem 0.6rem; border-radius: 4px; font-size: 0.8125rem; font-family: inherit; min-width: 7rem; text-align: center; }
+    .shortcut-btn { padding: 0.35rem 0.65rem; font-size: 0.8125rem; }
+    .shortcut-row.recording .shortcut-kbd { outline: 2px solid var(--accent); color: var(--accent-light); }
+    .backup-reminder { margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); font-size: 0.8125rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    [data-personality="cyberpunk"] { --accent: #00ff9d; --accent-light: #5cffc4; --bg: #0d0d12; --accent-glow: rgba(0,255,157,0.35); }
+    [data-personality="executive"] { --accent: #2563eb; --accent-light: #3b82f6; --radius: 8px; --radius-sm: 6px; }
+    [data-personality="gamer"] { --accent: #ec4899; --accent-light: #f472b6; --accent-glow: rgba(236,72,153,0.4); }
+    [data-personality="hacker"] { --accent: #10b981; --accent-light: #34d399; font-family: ui-monospace, monospace; --accent-glow: rgba(16,185,129,0.4); }
+    [data-personality="cozy"] { --accent: #d97706; --accent-light: #f59e0b; --radius: 18px; --radius-sm: 12px; --accent-glow: rgba(217,119,6,0.35); }
+    body.panic-overlay::before { content: ''; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; animation: panicFade 0.3s ease; pointer-events: none; }
+    @keyframes panicFade { from { opacity: 0; } to { opacity: 1; } }
+    body.night-mode { --bg: #050508; --surface: linear-gradient(165deg, #0e0e12 0%, #0a0a0e 100%); --accent-glow: rgba(99, 102, 241, 0.25); }
+    body.night-mode .card { transition-duration: 0.4s; }
+    body.konami-effect { animation: konamiRainbow 2s ease; }
+    @keyframes konamiRainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+    .memory-lane { margin-bottom: 1.25rem; padding: 1rem; background: rgba(28,28,36,0.5); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .memory-lane h3 { font-size: 0.8125rem; font-weight: 600; color: var(--textMuted); margin: 0 0 0.5rem 0; text-transform: uppercase; letter-spacing: 0.06em; }
+    .memory-lane ul { margin: 0; padding-left: 1.25rem; font-size: 0.875rem; }
+    .memory-lane li { margin-bottom: 0.25rem; }
+
+    .search-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      flex-shrink: 0;
+    }
+    .search-row input {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
+      max-width: 340px;
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-sm);
+    }
+    .search-row select { width: auto; min-width: 130px; margin-bottom: 0; padding: 0.65rem 1rem; }
+
+    .entries-card {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-card);
+    }
+    .entries-card h2 { margin-bottom: 0.75rem; }
+    .entry-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      margin: 0 -0.25rem;
+      padding-right: 0.25rem;
+    }
+    .entry-list::-webkit-scrollbar { width: 6px; }
+    .entry-list::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+    .entry-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1.15rem;
+      background: rgba(28, 28, 36, 0.5);
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.5rem;
+      border: 1px solid transparent;
+      border-left: 3px solid transparent;
+      transition: border-color 0.2s ease, background 0.2s ease, transform 0.25s ease, box-shadow 0.2s ease, opacity 0.25s ease, max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    }
+    .entry-item.entry-deleting {
+      opacity: 0;
+      transform: translateX(-100%);
+      max-height: 0;
+      margin-bottom: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .btn-copy-pw.copied {
+      animation: copyPulse 0.4s ease;
+    }
+    @keyframes copyPulse {
+      0% { transform: scale(1); box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
+      50% { transform: scale(1.08); box-shadow: 0 0 20px var(--accent-glow); }
+      100% { transform: scale(1); box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
+    }
+    .save-success-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--success);
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.2s ease, transform 0.25s ease;
+    }
+    .save-success-check.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .save-success-check svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .entry-item:hover {
+      background: rgba(36, 36, 48, 0.7);
+      border-color: var(--border-bright);
+      border-left-color: var(--accent);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      transform: translateX(2px);
+    }
+    .entry-info { flex: 1; min-width: 0; }
+    .entry-info .account-name { display: block; font-size: 0.75rem; color: var(--textMuted); margin-bottom: 0.15rem; font-weight: 500; }
+    .entry-info .site { font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.01em; }
+    .entry-info .username { color: var(--textMuted); font-size: 0.8125rem; margin-top: 0.2rem; }
+    .entry-info .entry-notes { font-size: 0.8125rem; color: var(--textMuted); margin-top: 0.35rem; line-height: 1.4; max-height: 2.8em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+    .entry-pw { font-family: ui-monospace, monospace; font-size: 0.8125rem; margin-top: 0.25rem; color: var(--textMuted); }
+    .entry-tag {
+      font-size: 0.6875rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent-light);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      display: inline-block;
+      margin-top: 0.4rem;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    .entry-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .entry-actions button { padding: 0.45rem 0.7rem; font-size: 0.75rem; }
+
+    @media (max-width: 900px) {
+      .vault-layout { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; padding: 1rem; }
+      .vault-sidebar { max-height: 50vh; }
+      .vault-main { margin-left: 0; margin-top: 0.75rem; }
+    }
+    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- Setup screen: first-time master password -->
+  <section id="screenSetup" class="screen">
+    <div class="card">
+      <h1>Create your vault</h1>
+      <p style="color: var(--textMuted); margin: 0 0 1.25rem 0; font-size: 0.9375rem;">Choose a strong master password. It is never stored.</p>
+      <form id="formSetup">
+        <label for="setupPassword">Master password</label>
+        <div class="password-field-row">
+          <input type="password" id="setupPassword" autocomplete="new-password" required minlength="8" style="margin-bottom: 0;">
+          <button type="button" id="btnToggleSetupPassword" class="btn-eye secondary" title="Show password" aria-label="Show password">
+            <span class="eye-open"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+            <span class="eye-closed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+          </button>
+        </div>
+        <label for="setupConfirm">Confirm master password</label>
+        <div class="password-field-row">
+          <input type="password" id="setupConfirm" autocomplete="new-password" required minlength="8" style="margin-bottom: 0;">
+          <button type="button" id="btnToggleSetupConfirm" class="btn-eye secondary" title="Show password" aria-label="Show password">
+            <span class="eye-open"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+            <span class="eye-closed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+          </button>
+        </div>
+        <p class="remember-row"><label><input type="checkbox" id="setupRememberMe"> Remember me on this device (until you clear it or reset PC)</label></p>
+        <p id="setupError" class="error hidden"></p>
+        <button type="submit">Create vault</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Home / Security dashboard (after unlock) -->
+  <section id="screenHome" class="screen">
+    <div class="card home-card">
+      <h1>Security overview</h1>
+      <p class="dashboard-subtitle">Your vault at a glance.</p>
+      <div class="dashboard-grid">
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statTotal">0</span>
+          <span class="stat-label">Total accounts</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statWeak">0</span>
+          <span class="stat-label">Weak passwords</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statReused">0</span>
+          <span class="stat-label">Reused passwords</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statOldest">—</span>
+          <span class="stat-label">Oldest (days)</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statAvgLength">—</span>
+          <span class="stat-label">Avg password length</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statDuplicateUsers">0</span>
+          <span class="stat-label">Duplicate usernames</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statAdded30">0</span>
+          <span class="stat-label">Added (30 days)</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statCategories">0</span>
+          <span class="stat-label">Categories</span>
+        </div>
+        <div class="dashboard-stat">
+          <span class="stat-value" id="statIncomplete">0</span>
+          <span class="stat-label">Incomplete entries</span>
+        </div>
+      </div>
+      <div class="dashboard-strength-row">
+        <div class="strength-circle-wrap">
+          <svg class="strength-circle" viewBox="0 0 36 36">
+            <path class="strength-bg" d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31"/>
+            <path class="strength-fill" id="strengthMeterPath" stroke-dasharray="0 100" d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31"/>
+          </svg>
+          <span class="strength-circle-value" id="strengthMeterVal">0%</span>
+        </div>
+        <div class="grade-wrap">
+          <span class="grade-label">Security grade</span>
+          <span class="grade-letter" id="gradeLetter">—</span>
+        </div>
+      </div>
+      <div class="form-actions dashboard-actions">
+        <button type="button" id="btnGoToVault">Go to vault</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Unlock screen -->
+  <section id="screenUnlock" class="screen">
+    <div class="card">
+      <h1>Unlock vault</h1>
+      <p style="color: var(--textMuted); margin: 0 0 1.25rem 0; font-size: 0.9375rem;">Enter your master password to access your entries.</p>
+      <form id="formUnlock">
+        <label for="unlockPassword">Master password</label>
+        <div class="password-field-row">
+          <input type="password" id="unlockPassword" autocomplete="current-password" required style="margin-bottom: 0;">
+          <button type="button" id="btnToggleUnlockPassword" class="btn-eye secondary" title="Show password" aria-label="Show password">
+            <span class="eye-open"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+            <span class="eye-closed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+          </button>
+        </div>
+        <p class="remember-row"><label><input type="checkbox" id="unlockRememberMe"> Remember me on this device (until you clear it or reset PC)</label></p>
+        <p id="unlockError" class="error hidden"></p>
+        <button type="submit">Unlock</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Vault screen -->
+  <section id="screenVault" class="screen">
+    <div class="vault-layout">
+      <header class="vault-header">
+        <div class="vault-header-inner">
+          <h1 id="vaultTitle">Password vault</h1>
+          <p id="vaultWelcome" class="vault-welcome hidden"></p>
+        </div>
+      </header>
+
+      <aside class="vault-sidebar">
+        <!-- Add / Edit entry form -->
+        <div class="card card-tilt" id="entryFormCard">
+          <h2 id="formEntryTitle">Add entry</h2>
+          <form id="formEntry">
+            <div>
+              <label for="entryAccountName">Account name (optional)</label>
+              <input type="text" id="entryAccountName" placeholder="e.g. Work, Personal" autocomplete="off">
+            </div>
+            <div class="form-grid">
+              <div>
+                <label for="entrySite">Site / App name</label>
+                <input type="text" id="entrySite" required placeholder="e.g. GitHub">
+              </div>
+              <div>
+                <label for="entryUsername">Username / Email</label>
+                <input type="text" id="entryUsername" placeholder="you@example.com">
+              </div>
+            </div>
+            <div>
+              <label for="entryPassword">Password</label>
+              <div class="password-field-row">
+                <input type="password" id="entryPassword" placeholder="Enter or generate" style="margin-bottom: 0;">
+                <button type="button" id="btnToggleEntryPassword" class="btn-eye secondary" title="Show password" aria-label="Show password">
+                  <span class="eye-open"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+                  <span class="eye-closed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+                </button>
+                <button type="button" id="btnGenPassword">Generate</button>
+              </div>
+            </div>
+            <div>
+              <label for="entryCategory">Category</label>
+              <input type="text" id="entryCategory" list="categoryDatalist" placeholder="Type or pick a category" autocomplete="off">
+              <datalist id="categoryDatalist"></datalist>
+            </div>
+            <div class="entry-tags-form-row">
+              <label>Tags</label>
+              <input type="hidden" id="entryTagIds" value="">
+              <div id="entryTagCheckboxes" class="generator-options" style="margin-top:0.35rem;"></div>
+            </div>
+            <div>
+              <label for="entryNotes">Notes (optional)</label>
+              <textarea id="entryNotes" placeholder="Optional notes" style="min-height: 100px;"></textarea>
+            </div>
+            <div>
+              <label for="entryPrivateNotes">Private thoughts (optional, encrypted)</label>
+              <textarea id="entryPrivateNotes" placeholder="Locked notes — only you can see these" style="min-height: 60px;"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="btnFormSubmit">Save</button>
+              <button type="button" id="btnCancelEdit" class="secondary hidden">Cancel</button>
+              <button type="button" id="btnClearForm" class="secondary">Clear</button>
+            </div>
+            <p id="saveSuccessCheck" class="save-success-check" aria-live="polite">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Saved
+            </p>
+          </form>
+
+          <div class="generator-box">
+            <label>Password generator</label>
+            <div>
+              <label for="genLength">Length: <span id="genLengthVal">16</span></label>
+              <input type="range" id="genLength" min="12" max="32" value="16" style="width: 100%; margin-bottom: 0.5rem; accent-color: var(--accent);">
+            </div>
+            <div class="generator-options">
+              <label><input type="checkbox" id="genUpper" checked> Uppercase</label>
+              <label><input type="checkbox" id="genLower" checked> Lowercase</label>
+              <label><input type="checkbox" id="genNumbers" checked> Numbers</label>
+              <label><input type="checkbox" id="genSymbols" checked> Symbols</label>
+            </div>
+            <p id="genStrength" class="strength medium">Strength: medium</p>
+            <div class="form-actions">
+              <button type="button" id="btnGenCopy">Copy</button>
+              <button type="button" id="btnGenUse" class="secondary">Use in form</button>
+            </div>
+          </div>
+
+          <div class="settings-panel">
+            <h2 class="settings-main-title">Settings</h2>
+
+            <section class="settings-section">
+              <h3 class="settings-section-title">Profile</h3>
+              <div class="settings-row">
+                <label for="settingVaultDisplayName">Your name (shown in vault)</label>
+                <input type="text" id="settingVaultDisplayName" placeholder="e.g. Alex" maxlength="40" autocomplete="off" class="settings-input">
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h3 class="settings-section-title">Appearance</h3>
+              <div class="settings-row">
+                <label for="settingPersonality">Theme</label>
+                <select id="settingPersonality" aria-label="UI theme">
+                  <option value="minimal">Minimal</option>
+                  <option value="cyberpunk">Cyberpunk</option>
+                  <option value="executive">Executive</option>
+                  <option value="gamer">Gamer</option>
+                  <option value="hacker">Hacker</option>
+                  <option value="cozy">Cozy</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h3 class="settings-section-title">Vault</h3>
+              <div class="settings-actions">
+                <button type="button" id="btnForgetMe" class="secondary">Forget me</button>
+                <button type="button" id="btnExport" class="secondary">Export backup</button>
+                <button type="button" id="btnImport" class="secondary">Import backup</button>
+                <button type="button" id="btnClearVault" class="danger">Clear vault</button>
+              </div>
+              <input type="file" id="fileImport" accept=".json">
+            </section>
+
+            <section class="settings-section shortcuts-section">
+              <h3 class="settings-section-title">Keyboard shortcuts</h3>
+              <p class="shortcuts-hint">Click Change, then press the key combination you want.</p>
+              <div class="shortcuts-rows">
+                <div class="shortcut-row">
+                  <span class="shortcut-label">Focus search</span>
+                  <kbd class="shortcut-kbd" id="displayFocusSearch">Ctrl+Shift+F</kbd>
+                  <button type="button" class="secondary shortcut-btn" data-action="focusSearch">Change</button>
+                </div>
+                <div class="shortcut-row">
+                  <span class="shortcut-label">Add new entry</span>
+                  <kbd class="shortcut-kbd" id="displayAddEntry">Ctrl+Shift+N</kbd>
+                  <button type="button" class="secondary shortcut-btn" data-action="addEntry">Change</button>
+                </div>
+                <div class="shortcut-row">
+                  <span class="shortcut-label">Lock vault</span>
+                  <kbd class="shortcut-kbd" id="displayLock">Alt+L</kbd>
+                  <button type="button" class="secondary shortcut-btn" data-action="lock">Change</button>
+                </div>
+                <div class="shortcut-row">
+                  <span class="shortcut-label">Panic lock</span>
+                  <kbd class="shortcut-kbd" id="displayPanic">Ctrl+Shift+P</kbd>
+                  <button type="button" class="secondary shortcut-btn" data-action="panic">Change</button>
+                </div>
+                <div class="shortcut-row">
+                  <span class="shortcut-label">Cycle theme</span>
+                  <kbd class="shortcut-kbd" id="displayCycleTheme">Alt+T</kbd>
+                  <button type="button" class="secondary shortcut-btn" data-action="cycleTheme">Change</button>
+                </div>
+              </div>
+            </section>
+
+            <div id="backupReminderBanner" class="backup-reminder hidden">
+              <span>Consider exporting an encrypted backup (last export &gt; 30 days ago).</span>
+              <button type="button" id="btnDismissBackupReminder" class="secondary">Dismiss</button>
+            </div>
+
+            <section class="settings-section">
+              <h3 class="settings-section-title">Manage tags</h3>
+              <div class="tag-add-row">
+                <input type="text" id="newTagName" placeholder="Tag name" maxlength="30">
+                <input type="color" id="newTagColor" value="#a78bfa" title="Tag color">
+                <button type="button" id="btnAddTag" class="secondary">Add tag</button>
+              </div>
+              <div id="tagsList" class="tags-list"></div>
+            </section>
+          </div>
+
+          <div class="changelog-panel">
+            <h2 id="changelogToggle" class="collapsed">Changelog</h2>
+            <div id="changelogContent" class="changelog-content collapsed"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="vault-main">
+        <div class="search-row">
+          <input type="text" id="searchBar" placeholder="Search entries..." aria-label="Search">
+          <select id="filterCategory" aria-label="Category filter">
+            <option value="">All categories</option>
+          </select>
+        </div>
+
+        <div id="memoryLane" class="memory-lane hidden">
+          <h3>Memory Lane — Oldest entries</h3>
+          <ul id="memoryLaneList"></ul>
+        </div>
+        <div class="entries-card">
+          <h2>Entries</h2>
+          <div id="entryList" class="entry-list">
+            <p id="entryListEmpty" style="color: var(--textMuted); font-size: 0.9375rem;">No entries yet.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <script>
+    // ========== 1. CRYPTO ==========
+    const PBKDF2_ITERATIONS = 250000;
+    const SALT_LEN = 16;
+    const IV_LEN = 12;
+    const KEY_LEN = 256;
+
+    function getRandomBytes(n) {
+      const arr = new Uint8Array(n);
+      crypto.getRandomValues(arr);
+      return arr;
+    }
+
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits', 'deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt,
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: KEY_LEN },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptVault(plaintext, key) {
+      const iv = getRandomBytes(IV_LEN);
+      const enc = new TextEncoder();
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        key,
+        enc.encode(plaintext)
+      );
+      const combined = new Uint8Array(IV_LEN + ciphertext.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(ciphertext), IV_LEN);
+      return b64Encode(combined);
+    }
+
+    async function decryptVault(b64Blob, key) {
+      const combined = b64Decode(b64Blob);
+      if (combined.length < IV_LEN) throw new Error('Invalid blob');
+      const iv = combined.slice(0, IV_LEN);
+      const ciphertext = combined.slice(IV_LEN);
+      const dec = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        key,
+        ciphertext
+      );
+      return new TextDecoder().decode(dec);
+    }
+
+    function b64Encode(buf) {
+      const arr = new Uint8Array(buf);
+      let binary = '';
+      const chunk = 8192;
+      for (let i = 0; i < arr.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+    function b64Decode(str) {
+      return new Uint8Array([...atob(str)].map(c => c.charCodeAt(0)));
+    }
+
+    // ========== 2. KEY / VAULT STATE ==========
+    const VAULT_KEY = 'pm_vault';
+    const REMEMBER_KEY = 'pm_remember_mp';
+    const SETTINGS_KEY = 'pm_settings';
+    const VAULT_VERSION = 1;
+    let cryptoKey = null;       // in-memory only
+    let vaultSalt = null;      // stored with vault blob for unlock
+    let entries = [];          // in-memory after unlock
+    let tags = [];             // { id, name, color } per vault
+
+    function getRememberedPassword() { return localStorage.getItem(REMEMBER_KEY); }
+    function setRememberedPassword(pw) { try { localStorage.setItem(REMEMBER_KEY, pw); } catch (e) {} }
+    function clearRememberedPassword() { try { localStorage.removeItem(REMEMBER_KEY); } catch (e) {} }
+
+    function runMigrations(data) {
+      let payload = { ...data, version: data.version || 1 };
+      const migrations = {
+        2: (p) => ({ ...p, version: 2, entries: p.entries }),
+      };
+      while (payload.version < VAULT_VERSION && migrations[payload.version + 1]) {
+        payload = migrations[payload.version + 1](payload);
+      }
+      return payload;
+    }
+
+    function migrateEntries(arr) {
+      const now = new Date().toISOString();
+      return arr.map(e => ({
+        id: e.id || crypto.randomUUID(),
+        accountName: (e.accountName || '').trim(),
+        siteName: e.siteName || '',
+        username: e.username || '',
+        password: e.password || '',
+        category: (e.category || '').trim(),
+        notes: e.notes || '',
+        pinned: !!e.pinned,
+        tagIds: Array.isArray(e.tagIds) ? e.tagIds : [],
+        createdAt: e.createdAt || now,
+        updatedAt: e.updatedAt || now,
+        privateNotes: e.privateNotes || ''
+      }));
+    }
+
+    function getSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+    function setSettings(obj) {
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj)); } catch (e) {}
+    }
+
+    function getVaultBlob() {
+      return localStorage.getItem(VAULT_KEY);
+    }
+
+    function hasVault() {
+      const blob = getVaultBlob();
+      return blob && blob.length > 0;
+    }
+
+    function lock() {
+      cryptoKey = null;
+      vaultSalt = null;
+      entries = [];
+      tags = [];
+      showScreen('unlock');
+      document.getElementById('unlockPassword').value = '';
+      document.getElementById('unlockError').classList.add('hidden');
+    }
+
+    async function unlockWithPassword(password) {
+      const blob = getVaultBlob();
+      if (!blob) return false;
+      try {
+        const raw = b64Decode(blob);
+        if (raw.length < SALT_LEN + IV_LEN) return false;
+        const salt = raw.slice(0, SALT_LEN);
+        const key = await deriveKey(password, salt);
+        const cipherPart = raw.slice(SALT_LEN);
+        const iv = cipherPart.slice(0, IV_LEN);
+        const ciphertext = cipherPart.slice(IV_LEN);
+        const dec = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv, tagLength: 128 },
+          key,
+          ciphertext
+        );
+        const json = new TextDecoder().decode(dec);
+        const data = JSON.parse(json);
+        if (!data.entries || !Array.isArray(data.entries)) return false;
+        const migrated = runMigrations(data);
+        cryptoKey = key;
+        vaultSalt = salt;
+        entries = migrateEntries(migrated.entries);
+        tags = Array.isArray(migrated.tags) ? migrated.tags : [];
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function saveVault() {
+      if (!cryptoKey || vaultSalt === null) return;
+      const payload = JSON.stringify({ entries, tags: tags, version: VAULT_VERSION });
+      const iv = getRandomBytes(IV_LEN);
+      const enc = new TextEncoder();
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        cryptoKey,
+        enc.encode(payload)
+      );
+      const combined = new Uint8Array(SALT_LEN + IV_LEN + ciphertext.byteLength);
+      combined.set(vaultSalt, 0);
+      combined.set(iv, SALT_LEN);
+      combined.set(new Uint8Array(ciphertext), SALT_LEN + IV_LEN);
+      localStorage.setItem(VAULT_KEY, b64Encode(combined));
+    }
+
+    // ========== 3. STORAGE (backup format) ==========
+    async function exportEncryptedBackup() {
+      const payload = JSON.stringify({ entries, tags: tags, version: VAULT_VERSION });
+      const iv = getRandomBytes(IV_LEN);
+      const enc = new TextEncoder();
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        cryptoKey,
+        enc.encode(payload)
+      );
+      const combined = new Uint8Array(SALT_LEN + IV_LEN + ciphertext.byteLength);
+      combined.set(vaultSalt, 0);
+      combined.set(iv, SALT_LEN);
+      combined.set(new Uint8Array(ciphertext), SALT_LEN + IV_LEN);
+      const filename = 'password-manager-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      const obj = { encrypted: b64Encode(combined), version: 1 };
+      const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    async function importEncryptedBackup(file, password) {
+      const text = await file.text();
+      let obj;
+      try {
+        obj = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Invalid or corrupted backup');
+      }
+      if (!obj.encrypted) throw new Error('Invalid or corrupted backup');
+      const raw = b64Decode(obj.encrypted);
+      if (raw.length < SALT_LEN + IV_LEN) throw new Error('Invalid or corrupted backup');
+      const salt = raw.slice(0, SALT_LEN);
+      const key = await deriveKey(password, salt);
+      const iv = raw.slice(SALT_LEN, SALT_LEN + IV_LEN);
+      const ciphertext = raw.slice(SALT_LEN + IV_LEN);
+      let dec;
+      try {
+        dec = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv, tagLength: 128 },
+          key,
+          ciphertext
+        );
+      } catch (e) {
+        throw new Error('Invalid or corrupted backup');
+      }
+      const json = new TextDecoder().decode(dec);
+      const data = JSON.parse(json);
+      if (!data.entries || !Array.isArray(data.entries)) throw new Error('Invalid or corrupted backup');
+      const migrated = runMigrations(data);
+      return { entries: migrateEntries(migrated.entries), tags: Array.isArray(migrated.tags) ? migrated.tags : [] };
+    }
+
+    // ========== 4. UI STATE ==========
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      const id = name === 'setup' ? 'screenSetup' : name === 'unlock' ? 'screenUnlock' : name === 'home' ? 'screenHome' : 'screenVault';
+      const screenEl = document.getElementById(id);
+      if (screenEl) screenEl.classList.add('active');
+      if (name === 'home') {
+        resetInactivityTimer();
+        renderDashboard();
+      }
+      if (name === 'vault') {
+        resetInactivityTimer();
+        setFormModeAdd();
+        editingEntryId = null;
+        updateVaultHeader();
+        refreshEntryTagCheckboxes();
+        renderTagsList();
+        renderEntryList();
+        renderMemoryLane();
+        checkBackupReminder();
+        applyNightMode();
+        if (typeof updateGenStrength === 'function') updateGenStrength();
+      }
+    }
+
+    function applyNightMode() {
+      const hour = new Date().getHours();
+      if (hour >= 21 || hour < 6) document.body.classList.add('night-mode');
+      else document.body.classList.remove('night-mode');
+    }
+
+    function renderMemoryLane() {
+      const wrap = document.getElementById('memoryLane');
+      const list = document.getElementById('memoryLaneList');
+      if (!wrap || !list) return;
+      const oldest = [...entries].sort((a, b) => {
+        const t1 = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const t2 = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return t1 - t2;
+      }).slice(0, 5);
+      if (oldest.length === 0) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      list.innerHTML = oldest.map(e => `<li>${escapeHtml(e.accountName || e.siteName || 'Unnamed')} — ${escapeHtml(e.siteName || '')} ${escapeHtml(e.username || '')}</li>`).join('');
+    }
+
+    function checkBackupReminder() {
+      const banner = document.getElementById('backupReminderBanner');
+      if (!banner) return;
+      const s = getSettings();
+      if (s.dismissedBackupReminderUntil && Date.now() < s.dismissedBackupReminderUntil) {
+        banner.classList.add('hidden');
+        return;
+      }
+      const last = s.lastBackupExportAt ? new Date(s.lastBackupExportAt).getTime() : 0;
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      if (last && (Date.now() - last) < thirtyDays) {
+        banner.classList.add('hidden');
+      } else {
+        banner.classList.remove('hidden');
+      }
+    }
+    document.getElementById('btnDismissBackupReminder').addEventListener('click', () => {
+      setSettings({ ...getSettings(), dismissedBackupReminderUntil: Date.now() + 24 * 60 * 60 * 1000 });
+      document.getElementById('backupReminderBanner').classList.add('hidden');
+    });
+
+    function passwordStrengthScore(pw) {
+      if (!pw) return 0;
+      let score = 0;
+      if (pw.length >= 20) score += 2; else if (pw.length >= 16) score += 1.5; else if (pw.length >= 12) score += 1;
+      if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+      if (/\d/.test(pw)) score += 1;
+      if (/[^a-zA-Z0-9]/.test(pw)) score += 1;
+      return score;
+    }
+
+    function isWeakPassword(pw) {
+      return passwordStrengthScore(pw) <= 2;
+    }
+
+    function renderDashboard() {
+      const total = entries.length;
+      const now = Date.now();
+      const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const weak = entries.filter(e => isWeakPassword(e.password)).length;
+      const byPw = {};
+      entries.forEach(e => {
+        const p = e.password || '';
+        byPw[p] = (byPw[p] || 0) + 1;
+      });
+      const reused = Object.values(byPw).filter(n => n > 1).reduce((a, n) => a + n, 0);
+      let oldestDays = null;
+      entries.forEach(e => {
+        const t = e.createdAt ? new Date(e.createdAt).getTime() : now;
+        const d = Math.floor((now - t) / (24 * 60 * 60 * 1000));
+        if (oldestDays === null || d > oldestDays) oldestDays = d;
+      });
+      const avgPwLength = total ? Math.round(entries.reduce((s, e) => s + (e.password || '').length, 0) / total) : 0;
+      const byUsername = {};
+      entries.forEach(e => {
+        const u = (e.username || '').trim().toLowerCase();
+        if (u) byUsername[u] = (byUsername[u] || 0) + 1;
+      });
+      const duplicateUsers = Object.values(byUsername).filter(n => n > 1).reduce((a, n) => a + n, 0);
+      const addedLast30 = entries.filter(e => e.createdAt && new Date(e.createdAt).getTime() >= thirtyDaysAgo).length;
+      const categories = new Set(entries.map(e => (e.category || '').trim()).filter(Boolean)).size;
+      const incomplete = entries.filter(e => !(e.notes || '').trim() && !(e.category || '').trim()).length;
+      const avgScore = total ? entries.reduce((s, e) => s + passwordStrengthScore(e.password), 0) / total : 0;
+      const avgPct = Math.min(100, Math.round((avgScore / 6) * 100));
+      let grade = '—';
+      let gradeClass = '';
+      if (total > 0) {
+        const composite = (avgPct * 0.4) + (weak === 0 ? 30 : 0) + (reused === 0 ? 30 : 0) - (weak * 5) - (reused * 3);
+        if (composite >= 85) { grade = 'A+'; gradeClass = 'grade-a'; }
+        else if (composite >= 75) { grade = 'A'; gradeClass = 'grade-a'; }
+        else if (composite >= 65) { grade = 'B'; gradeClass = 'grade-b'; }
+        else if (composite >= 50) { grade = 'C'; gradeClass = 'grade-c'; }
+        else if (composite >= 35) { grade = 'D'; gradeClass = 'grade-d'; }
+        else { grade = 'F'; gradeClass = 'grade-f'; }
+      }
+      const circumference = 97.4;
+      const dash = (avgPct / 100) * circumference;
+      const setStat = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setStat('statTotal', total);
+      setStat('statWeak', weak);
+      setStat('statReused', reused);
+      setStat('statOldest', oldestDays !== null ? oldestDays : '—');
+      setStat('statAvgLength', total ? avgPwLength : '—');
+      setStat('statDuplicateUsers', duplicateUsers);
+      setStat('statAdded30', addedLast30);
+      setStat('statCategories', categories);
+      setStat('statIncomplete', incomplete);
+      setStat('strengthMeterVal', avgPct + '%');
+      document.getElementById('strengthMeterPath').setAttribute('stroke-dasharray', dash + ' ' + circumference);
+      const gradeEl = document.getElementById('gradeLetter');
+      gradeEl.textContent = grade;
+      gradeEl.className = 'grade-letter ' + gradeClass;
+      animateValue('statTotal', 0, total, 500);
+      animateValue('statWeak', 0, weak, 500);
+      animateValue('statReused', 0, reused, 500);
+      animateValue('statAdded30', 0, addedLast30, 500);
+    }
+
+    function animateValue(id, start, end, duration) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const startTime = performance.now();
+      function step(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        const v = Math.round(start + (end - start) * t);
+        el.textContent = v;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    document.getElementById('btnGoToVault').addEventListener('click', () => {
+      showScreen('vault');
+    });
+
+    function applyPersonality() {
+      const s = getSettings();
+      const p = s.personality || 'minimal';
+      document.documentElement.dataset.personality = p;
+    }
+    function updateVaultHeader() {
+      const s = getSettings();
+      const name = (s.vaultDisplayName || '').trim();
+      const titleEl = document.getElementById('vaultTitle');
+      const welcomeEl = document.getElementById('vaultWelcome');
+      if (!titleEl || !welcomeEl) return;
+      if (name) {
+        titleEl.textContent = name + "'s vault";
+        welcomeEl.classList.add('hidden');
+      } else {
+        titleEl.textContent = 'Password vault';
+        welcomeEl.classList.add('hidden');
+      }
+    }
+
+    const DEFAULT_SHORTCUTS = { focusSearch: 'Ctrl+Shift+F', addEntry: 'Ctrl+Shift+N', lock: 'Alt+L', panic: 'Ctrl+Shift+P', cycleTheme: 'Alt+T' };
+    function getShortcuts() {
+      const s = getSettings();
+      return { ...DEFAULT_SHORTCUTS, ...(s.shortcuts || {}) };
+    }
+    function formatKeyFromEvent(e) {
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.altKey) parts.push('Alt');
+      if (e.metaKey) parts.push('Meta');
+      let key = e.key;
+      if (key === ' ') key = 'Space';
+      else if (key.length > 1) key = key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return null;
+      parts.push(key);
+      return parts.join('+');
+    }
+    function updateShortcutDisplays() {
+      const sc = getShortcuts();
+      const ids = { focusSearch: 'displayFocusSearch', addEntry: 'displayAddEntry', lock: 'displayLock', panic: 'displayPanic', cycleTheme: 'displayCycleTheme' };
+      Object.keys(ids).forEach(action => {
+        const el = document.getElementById(ids[action]);
+        if (el) el.textContent = sc[action] || DEFAULT_SHORTCUTS[action];
+      });
+    }
+    function initSettings() {
+      const s = getSettings();
+      const personalityEl = document.getElementById('settingPersonality');
+      const displayNameEl = document.getElementById('settingVaultDisplayName');
+      if (personalityEl) personalityEl.value = s.personality || 'minimal';
+      if (displayNameEl) displayNameEl.value = s.vaultDisplayName || '';
+      applyPersonality();
+      if (personalityEl) personalityEl.addEventListener('change', () => {
+        setSettings({ ...getSettings(), personality: personalityEl.value });
+        applyPersonality();
+      });
+      if (displayNameEl) displayNameEl.addEventListener('input', () => {
+        setSettings({ ...getSettings(), vaultDisplayName: displayNameEl.value.trim() });
+        updateVaultHeader();
+      });
+      if (displayNameEl) displayNameEl.addEventListener('blur', () => {
+        setSettings({ ...getSettings(), vaultDisplayName: displayNameEl.value.trim() });
+        updateVaultHeader();
+      });
+      updateShortcutDisplays();
+      let recordingAction = null;
+      function stopRecording() {
+        if (recordingAction) {
+          document.querySelectorAll('.shortcut-row.recording').forEach(r => r.classList.remove('recording'));
+          recordingAction = null;
+        }
+      }
+      document.querySelectorAll('.shortcut-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          if (!action) return;
+          stopRecording();
+          recordingAction = action;
+          btn.closest('.shortcut-row').classList.add('recording');
+          const kbdEl = document.getElementById('display' + action.charAt(0).toUpperCase() + action.slice(1));
+          if (kbdEl) kbdEl.textContent = 'Press key…';
+        });
+      });
+      document.addEventListener('keydown', function captureShortcut(e) {
+        if (!recordingAction) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const combo = formatKeyFromEvent(e);
+        if (!combo) return;
+        const sc = getShortcuts();
+        sc[recordingAction] = combo;
+        setSettings({ ...getSettings(), shortcuts: sc });
+        const ids = { focusSearch: 'displayFocusSearch', addEntry: 'displayAddEntry', lock: 'displayLock', panic: 'displayPanic', cycleTheme: 'displayCycleTheme' };
+        const el = document.getElementById(ids[recordingAction]);
+        if (el) el.textContent = combo;
+        stopRecording();
+      }, true);
+    }
+
+    const eyeOpenSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    const eyeClosedSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+    function getEntryTagIdsFromForm() {
+      const container = document.getElementById('entryTagCheckboxes');
+      if (!container) return [];
+      return [...container.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.dataset.tagId).filter(Boolean);
+    }
+    function setEntryTagIdsInForm(ids) {
+      const container = document.getElementById('entryTagCheckboxes');
+      const hidden = document.getElementById('entryTagIds');
+      if (hidden) hidden.value = (ids || []).join(', ');
+      if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = (ids || []).includes(cb.dataset.tagId); });
+    }
+
+    let editingEntryId = null;
+
+    function setFormModeAdd() {
+      editingEntryId = null;
+      const title = document.getElementById('formEntryTitle');
+      const submitBtn = document.getElementById('btnFormSubmit');
+      const cancelBtn = document.getElementById('btnCancelEdit');
+      const clearBtn = document.getElementById('btnClearForm');
+      if (title) title.textContent = 'Add entry';
+      if (submitBtn) submitBtn.textContent = 'Save';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+      if (clearBtn) clearBtn.classList.remove('hidden');
+    }
+
+    function setFormModeEdit() {
+      const title = document.getElementById('formEntryTitle');
+      const submitBtn = document.getElementById('btnFormSubmit');
+      const cancelBtn = document.getElementById('btnCancelEdit');
+      const clearBtn = document.getElementById('btnClearForm');
+      if (title) title.textContent = 'Edit entry';
+      if (submitBtn) submitBtn.textContent = 'Update';
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
+      if (clearBtn) clearBtn.classList.add('hidden');
+    }
+
+    function startEditingEntry(entry) {
+      editingEntryId = entry.id;
+      const accountNameEl = document.getElementById('entryAccountName');
+      const siteEl = document.getElementById('entrySite');
+      const usernameEl = document.getElementById('entryUsername');
+      const passwordEl = document.getElementById('entryPassword');
+      const categoryEl = document.getElementById('entryCategory');
+      const notesEl = document.getElementById('entryNotes');
+      const privateNotesEl = document.getElementById('entryPrivateNotes');
+      if (accountNameEl) accountNameEl.value = entry.accountName || '';
+      if (siteEl) siteEl.value = entry.siteName || '';
+      if (usernameEl) usernameEl.value = entry.username || '';
+      if (passwordEl) { passwordEl.value = entry.password || ''; passwordEl.type = 'password'; }
+      if (categoryEl) categoryEl.value = entry.category || '';
+      if (notesEl) notesEl.value = entry.notes || '';
+      if (privateNotesEl) privateNotesEl.value = entry.privateNotes || '';
+      refreshEntryTagCheckboxes();
+      setEntryTagIdsInForm(entry.tagIds || []);
+      const eyeBtn = document.getElementById('btnToggleEntryPassword');
+      if (eyeBtn) { eyeBtn.classList.remove('showing'); eyeBtn.title = 'Show password'; eyeBtn.setAttribute('aria-label', 'Show password'); }
+      setFormModeEdit();
+      const card = document.getElementById('entryFormCard');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      resetInactivityTimer();
+    }
+
+    function cancelEdit() {
+      document.getElementById('formEntry').reset();
+      const pn = document.getElementById('entryPrivateNotes');
+      if (pn) pn.value = '';
+      const passwordEl = document.getElementById('entryPassword');
+      if (passwordEl) { passwordEl.type = 'password'; }
+      const eyeBtn = document.getElementById('btnToggleEntryPassword');
+      if (eyeBtn) { eyeBtn.classList.remove('showing'); eyeBtn.title = 'Show password'; eyeBtn.setAttribute('aria-label', 'Show password'); }
+      setEntryTagIdsInForm([]);
+      refreshEntryTagCheckboxes();
+      setFormModeAdd();
+      editingEntryId = null;
+    }
+    function refreshEntryTagCheckboxes() {
+      const container = document.getElementById('entryTagCheckboxes');
+      if (!container) return;
+      const selected = getEntryTagIdsFromForm();
+      container.innerHTML = tags.map(t => {
+        const id = 'tag_cb_' + t.id.replace(/\W/g, '_');
+        const checked = selected.includes(t.id) ? ' checked' : '';
+        const style = t.color ? ` style="accent-color:${t.color}"` : '';
+        return `<label><input type="checkbox" data-tag-id="${escapeHtml(t.id)}" id="${id}"${checked}${style}> ${escapeHtml(t.name)}</label>`;
+      }).join('');
+      container.querySelectorAll('input').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const ids = getEntryTagIdsFromForm();
+          const hidden = document.getElementById('entryTagIds');
+          if (hidden) hidden.value = ids.join(', ');
+        });
+      });
+    }
+    function renderTagsList() {
+      const el = document.getElementById('tagsList');
+      if (!el) return;
+      if (tags.length === 0) {
+        el.innerHTML = '<p style="font-size:0.8125rem;color:var(--textMuted);margin:0;">No tags yet. Add one above.</p>';
+        return;
+      }
+      el.innerHTML = tags.map(t => `
+        <div class="tag-row" data-tag-id="${escapeHtml(t.id)}">
+          <span class="tag-color-swatch" style="background:${escapeHtml(t.color || '#a78bfa')}"></span>
+          <span class="tag-name">${escapeHtml(t.name)}</span>
+          <button type="button" class="secondary btn-delete-tag" style="padding:0.35rem 0.6rem;font-size:0.75rem;" title="Delete tag">Delete</button>
+        </div>
+      `).join('');
+      el.querySelectorAll('.btn-delete-tag').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = btn.closest('.tag-row');
+          const tagId = row && row.dataset.tagId;
+          if (!tagId) return;
+          if (!confirm('Delete this tag? It will be removed from all entries.')) return;
+          tags = tags.filter(x => x.id !== tagId);
+          entries.forEach(e => { if (e.tagIds) e.tagIds = e.tagIds.filter(id => id !== tagId); });
+          saveVault().then(() => { renderTagsList(); refreshEntryTagCheckboxes(); renderEntryList(); });
+        });
+      });
+    }
+
+    function refreshCategoryLists() {
+      const cats = [...new Set(entries.map(e => (e.category || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const datalist = document.getElementById('categoryDatalist');
+      datalist.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join('');
+      const filter = document.getElementById('filterCategory');
+      const current = filter.value;
+      filter.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if (cats.includes(current)) filter.value = current;
+    }
+
+    function getTagNamesForEntry(entry) {
+      if (!entry.tagIds || !entry.tagIds.length) return [];
+      return entry.tagIds.map(tid => {
+        const t = tags.find(x => x.id === tid);
+        return t ? t.name : '';
+      }).filter(Boolean);
+    }
+
+    function highlightMatch(text, search) {
+      if (!search || !text) return escapeHtml(text || '');
+      const s = String(text);
+      const lower = s.toLowerCase();
+      const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      if (!terms.length) return escapeHtml(s);
+      let pos = 0;
+      const parts = [];
+      while (pos < lower.length) {
+        let found = -1;
+        let len = 0;
+        for (const term of terms) {
+          const i = lower.indexOf(term, pos);
+          if (i !== -1 && (found === -1 || i < found)) {
+            found = i;
+            len = term.length;
+          }
+        }
+        if (found === -1) {
+          parts.push(escapeHtml(s.slice(pos)));
+          break;
+        }
+        if (found > pos) parts.push(escapeHtml(s.slice(pos, found)));
+        parts.push('<mark>' + escapeHtml(s.slice(found, found + len)) + '</mark>');
+        pos = found + len;
+      }
+      return parts.join('');
+    }
+
+    function renderEntryList() {
+      refreshCategoryLists();
+      const searchRaw = (document.getElementById('searchBar').value || '').trim();
+      const search = searchRaw.toLowerCase();
+      const searchTerms = search ? search.split(/\s+/).filter(Boolean) : [];
+      const cat = (document.getElementById('filterCategory').value || '').toLowerCase();
+      function matchEntry(e) {
+        const tagNames = getTagNamesForEntry(e).join(' ');
+        const haystack = [e.accountName, e.siteName, e.username, (e.notes || ''), (e.category || ''), tagNames].map(s => String(s).toLowerCase()).join(' ');
+        const matchSearch = !searchTerms.length || searchTerms.every(term => haystack.includes(term));
+        const matchCat = !cat || (e.category || '').trim().toLowerCase() === cat;
+        return matchSearch && matchCat;
+      }
+      let list = entries.filter(matchEntry).sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        const nameA = (a.accountName || a.siteName || '').toLowerCase();
+        const nameB = (b.accountName || b.siteName || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      const container = document.getElementById('entryList');
+      const emptyEl = document.getElementById('entryListEmpty');
+      container.querySelectorAll('.entry-item').forEach(el => el.remove());
+      if (list.length === 0) {
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+      emptyEl.classList.add('hidden');
+      list.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'entry-item';
+        row.dataset.id = entry.id;
+        let showing = false;
+        const catLabel = (entry.category || '').trim() || '—';
+        const tagPills = (entry.tagIds || []).map(tid => {
+          const t = tags.find(x => x.id === tid);
+          if (!t) return '';
+          const name = highlightMatch(t.name, searchRaw);
+          const style = t.color ? `background:${t.color}22;border:1px solid ${t.color}44;color:${t.color};` : '';
+          return `<span class="entry-tag-pill" style="${style}">${name}</span>`;
+        }).filter(Boolean).join('');
+        const siteHtml = highlightMatch(entry.siteName, searchRaw);
+        const userHtml = highlightMatch(entry.username, searchRaw);
+        const accountNameHtml = entry.accountName ? highlightMatch(entry.accountName, searchRaw) : '';
+        const pinTitle = entry.pinned ? 'Unpin' : 'Pin';
+        const pinSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="4"/><path d="M12 10v12"/></svg>';
+        row.innerHTML = `
+          <div class="entry-info">
+            ${accountNameHtml ? `<span class="account-name">${accountNameHtml}</span>` : ''}
+            <span class="site">${siteHtml}</span>
+            <div class="username">${userHtml}</div>
+            <div class="entry-pw" style="font-family: monospace; font-size: 0.875rem; margin-top: 0.25rem;"></div>
+            <span class="entry-tag">${escapeHtml(catLabel)}</span>
+            ${tagPills ? `<div class="entry-tags-row">${tagPills}</div>` : ''}
+            ${(entry.notes || '').trim() ? `<div class="entry-notes" title="${escapeHtml((entry.notes || '').trim())}">${escapeHtml((entry.notes || '').trim().length > 100 ? (entry.notes || '').trim().slice(0, 100) + '…' : (entry.notes || '').trim())}</div>` : ''}
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-pin secondary ${entry.pinned ? 'pinned' : ''}" title="${pinTitle}" aria-label="${pinTitle}">${pinSvg}</button>
+            <button type="button" class="btn-eye btn-show-pw secondary" title="Show password" aria-label="Show password">
+              <span class="eye-open">${eyeOpenSvg}</span>
+              <span class="eye-closed">${eyeClosedSvg}</span>
+            </button>
+            <button type="button" class="btn-copy-pw" title="Copy password">Copy</button>
+            <button type="button" class="btn-edit secondary" title="Edit">Edit</button>
+            <button type="button" class="btn-delete danger" title="Delete">Delete</button>
+          </div>
+        `;
+        const pwEl = row.querySelector('.entry-pw');
+        const pwBtn = row.querySelector('.btn-show-pw');
+        const copyBtn = row.querySelector('.btn-copy-pw');
+        const delBtn = row.querySelector('.btn-delete');
+        const pinBtn = row.querySelector('.btn-pin');
+        const editBtn = row.querySelector('.btn-edit');
+        pwEl.textContent = '••••••••';
+        pwBtn.addEventListener('click', () => {
+          showing = !showing;
+          pwEl.textContent = showing ? entry.password : '••••••••';
+          pwBtn.classList.toggle('showing', showing);
+          pwBtn.title = showing ? 'Hide password' : 'Show password';
+          pwBtn.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
+        });
+        pinBtn.addEventListener('click', () => {
+          entry.pinned = !entry.pinned;
+          saveVault().then(() => renderEntryList());
+          resetInactivityTimer();
+        });
+        copyBtn.addEventListener('click', () => copyToClipboard(entry.password, copyBtn));
+        editBtn.addEventListener('click', () => startEditingEntry(entry));
+        delBtn.addEventListener('click', () => deleteEntry(entry.id, row));
+        container.appendChild(row);
+      });
+      renderMemoryLane();
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function deleteEntry(id, rowEl) {
+      if (rowEl) {
+        rowEl.classList.add('entry-deleting');
+        rowEl.addEventListener('transitionend', function onEnd() {
+          rowEl.removeEventListener('transitionend', onEnd);
+          entries = entries.filter(e => e.id !== id);
+          saveVault().then(() => renderEntryList());
+        });
+      } else {
+        entries = entries.filter(e => e.id !== id);
+        saveVault().then(() => renderEntryList());
+      }
+    }
+
+    let clipboardClearTimer = null;
+    async function copyToClipboard(text, triggerEl) {
+      try {
+        await navigator.clipboard.writeText(text || '');
+        if (triggerEl) {
+          triggerEl.classList.remove('copied');
+          triggerEl.offsetHeight;
+          triggerEl.classList.add('copied');
+          setTimeout(() => triggerEl.classList.remove('copied'), 400);
+        }
+        if (clipboardClearTimer) clearTimeout(clipboardClearTimer);
+        clipboardClearTimer = setTimeout(() => {
+          navigator.clipboard.writeText('');
+          clipboardClearTimer = null;
+        }, 30000);
+      } catch (e) {
+        alert('Could not copy to clipboard.');
+      }
+    }
+
+    // ========== 5. EVENT HANDLERS ==========
+    let inactivityTimer = null;
+    const INACTIVITY_MS = 5 * 60 * 1000;
+
+    function resetInactivityTimer() {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => lock(), INACTIVITY_MS);
+    }
+
+    document.getElementById('formSetup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const p1 = document.getElementById('setupPassword').value;
+      const p2 = document.getElementById('setupConfirm').value;
+      const errEl = document.getElementById('setupError');
+      if (p1 !== p2) {
+        errEl.textContent = 'Passwords do not match.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (p1.length < 8) {
+        errEl.textContent = 'Use at least 8 characters.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+      const salt = getRandomBytes(SALT_LEN);
+      const key = await deriveKey(p1, salt);
+      cryptoKey = key;
+      vaultSalt = salt;
+      entries = [];
+      await saveVault();
+      if (document.getElementById('setupRememberMe').checked) setRememberedPassword(p1);
+      document.getElementById('setupPassword').value = '';
+      document.getElementById('setupConfirm').value = '';
+      document.getElementById('setupPassword').type = 'password';
+      document.getElementById('setupConfirm').type = 'password';
+      document.getElementById('btnToggleSetupPassword').classList.remove('showing');
+      document.getElementById('btnToggleSetupConfirm').classList.remove('showing');
+      showScreen('home');
+    });
+
+    document.getElementById('formUnlock').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('unlockPassword').value;
+      const errEl = document.getElementById('unlockError');
+      const ok = await unlockWithPassword(password);
+      if (!ok) {
+        errEl.textContent = 'Incorrect password.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+      if (document.getElementById('unlockRememberMe').checked) setRememberedPassword(password);
+      document.getElementById('unlockPassword').value = '';
+      document.getElementById('unlockPassword').type = 'password';
+      document.getElementById('btnToggleUnlockPassword').classList.remove('showing');
+      showScreen('home');
+    });
+
+    document.getElementById('formEntry').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const accountName = (document.getElementById('entryAccountName') && document.getElementById('entryAccountName').value || '').trim();
+      const site = document.getElementById('entrySite').value.trim();
+      const username = document.getElementById('entryUsername').value.trim();
+      const password = document.getElementById('entryPassword').value;
+      const category = document.getElementById('entryCategory').value.trim();
+      const notes = document.getElementById('entryNotes').value.trim();
+      const now = new Date().toISOString();
+      const privateNotes = (document.getElementById('entryPrivateNotes') && document.getElementById('entryPrivateNotes').value || '').trim();
+      const tagIds = getEntryTagIdsFromForm();
+
+      if (editingEntryId) {
+        const entry = entries.find(e => e.id === editingEntryId);
+        if (entry) {
+          entry.accountName = accountName;
+          entry.siteName = site;
+          entry.username = username;
+          entry.password = password;
+          entry.category = category;
+          entry.notes = notes;
+          entry.privateNotes = privateNotes;
+          entry.tagIds = tagIds;
+          entry.updatedAt = now;
+        }
+        await saveVault();
+        const successEl = document.getElementById('saveSuccessCheck');
+        if (successEl) {
+          successEl.textContent = 'Updated';
+          successEl.classList.add('visible');
+          setTimeout(() => { successEl.classList.remove('visible'); successEl.textContent = 'Saved'; }, 1800);
+        }
+        cancelEdit();
+      } else {
+        entries.push({
+          id: crypto.randomUUID(),
+          accountName,
+          siteName: site,
+          username,
+          password,
+          category,
+          notes,
+          pinned: false,
+          tagIds,
+          createdAt: now,
+          updatedAt: now,
+          privateNotes
+        });
+        await saveVault();
+        const successEl = document.getElementById('saveSuccessCheck');
+        if (successEl) {
+          successEl.textContent = 'Saved';
+          successEl.classList.add('visible');
+          setTimeout(() => successEl.classList.remove('visible'), 1800);
+        }
+        document.getElementById('formEntry').reset();
+        const pn = document.getElementById('entryPrivateNotes');
+        if (pn) pn.value = '';
+        document.getElementById('entryPassword').type = 'password';
+        document.getElementById('btnToggleEntryPassword').classList.remove('showing');
+        document.getElementById('btnToggleEntryPassword').title = 'Show password';
+        document.getElementById('btnToggleEntryPassword').setAttribute('aria-label', 'Show password');
+        setEntryTagIdsInForm([]);
+        refreshEntryTagCheckboxes();
+      }
+      renderEntryList();
+      renderMemoryLane();
+      resetInactivityTimer();
+    });
+
+    document.getElementById('btnClearForm').addEventListener('click', () => {
+      if (editingEntryId) {
+        cancelEdit();
+      } else {
+        document.getElementById('formEntry').reset();
+        const pn = document.getElementById('entryPrivateNotes');
+        if (pn) pn.value = '';
+        document.getElementById('entryPassword').type = 'password';
+        document.getElementById('btnToggleEntryPassword').classList.remove('showing');
+        document.getElementById('btnToggleEntryPassword').title = 'Show password';
+        document.getElementById('btnToggleEntryPassword').setAttribute('aria-label', 'Show password');
+        setEntryTagIdsInForm([]);
+        refreshEntryTagCheckboxes();
+      }
+    });
+
+    document.getElementById('btnCancelEdit').addEventListener('click', () => cancelEdit());
+
+    document.getElementById('btnToggleEntryPassword').addEventListener('click', () => {
+      const input = document.getElementById('entryPassword');
+      const btn = document.getElementById('btnToggleEntryPassword');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.classList.add('showing');
+        btn.title = 'Hide password';
+        btn.setAttribute('aria-label', 'Hide password');
+      } else {
+        input.type = 'password';
+        btn.classList.remove('showing');
+        btn.title = 'Show password';
+        btn.setAttribute('aria-label', 'Show password');
+      }
+    });
+
+    function bindEyeToggle(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      if (!input || !btn) return;
+      btn.addEventListener('click', () => {
+        if (input.type === 'password') {
+          input.type = 'text';
+          btn.classList.add('showing');
+          btn.title = 'Hide password';
+          btn.setAttribute('aria-label', 'Hide password');
+        } else {
+          input.type = 'password';
+          btn.classList.remove('showing');
+          btn.title = 'Show password';
+          btn.setAttribute('aria-label', 'Show password');
+        }
+      });
+    }
+    bindEyeToggle('setupPassword', 'btnToggleSetupPassword');
+    bindEyeToggle('setupConfirm', 'btnToggleSetupConfirm');
+    bindEyeToggle('unlockPassword', 'btnToggleUnlockPassword');
+
+    document.getElementById('btnForgetMe').addEventListener('click', () => {
+      if (!confirm('Lock the vault and clear the remembered password? You will need to enter your master password next time.')) return;
+      clearRememberedPassword();
+      lock();
+    });
+
+    // Password generator
+    const genLength = document.getElementById('genLength');
+    const genLengthVal = document.getElementById('genLengthVal');
+    const genUpper = document.getElementById('genUpper');
+    const genLower = document.getElementById('genLower');
+    const genNumbers = document.getElementById('genNumbers');
+    const genSymbols = document.getElementById('genSymbols');
+    const genStrengthEl = document.getElementById('genStrength');
+
+    function getGeneratedPassword() {
+      const len = parseInt(genLength.value, 10);
+      let charset = '';
+      if (genUpper.checked) charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      if (genLower.checked) charset += 'abcdefghijklmnopqrstuvwxyz';
+      if (genNumbers.checked) charset += '0123456789';
+      if (genSymbols.checked) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+      if (!charset) charset = 'abcdefghijklmnopqrstuvwxyz';
+      let pw = '';
+      const arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      for (let i = 0; i < len; i++) pw += charset[arr[i] % charset.length];
+      return pw;
+    }
+
+    function strengthLabel(pw) {
+      let score = 0;
+      if (pw.length >= 20) score += 2; else if (pw.length >= 16) score += 1.5; else if (pw.length >= 12) score += 1;
+      if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+      if (/\d/.test(pw)) score += 1;
+      if (/[^a-zA-Z0-9]/.test(pw)) score += 1;
+      if (score <= 2) return { text: 'weak', cls: 'weak' };
+      if (score <= 4) return { text: 'medium', cls: 'medium' };
+      return { text: 'strong', cls: 'strong' };
+    }
+
+    function getStrengthFromOptions() {
+      const len = parseInt(genLength.value, 10);
+      let sets = 0;
+      if (genUpper.checked) sets++;
+      if (genLower.checked) sets++;
+      if (genNumbers.checked) sets++;
+      if (genSymbols.checked) sets++;
+      if (sets < 2) return { text: 'weak', cls: 'weak' };
+      let score = (len >= 20 ? 2 : len >= 16 ? 1.5 : len >= 12 ? 1 : 0) + Math.min(sets, 4);
+      if (score <= 2) return { text: 'weak', cls: 'weak' };
+      if (score <= 4) return { text: 'medium', cls: 'medium' };
+      return { text: 'strong', cls: 'strong' };
+    }
+
+    function updateGenStrength() {
+      genLengthVal.textContent = genLength.value;
+      const s = getStrengthFromOptions();
+      genStrengthEl.textContent = 'Strength: ' + s.text;
+      genStrengthEl.className = 'strength ' + s.cls;
+    }
+    genLength.addEventListener('input', updateGenStrength);
+    [genUpper, genLower, genNumbers, genSymbols].forEach(cb => cb.addEventListener('change', updateGenStrength));
+
+    document.getElementById('btnGenPassword').addEventListener('click', () => {
+      const pw = getGeneratedPassword();
+      document.getElementById('entryPassword').value = pw;
+      const s = strengthLabel(pw);
+      genStrengthEl.textContent = 'Strength: ' + s.text;
+      genStrengthEl.className = 'strength ' + s.cls;
+      resetInactivityTimer();
+    });
+
+    document.getElementById('btnGenCopy').addEventListener('click', () => {
+      const pw = getGeneratedPassword();
+      copyToClipboard(pw);
+      const s = getStrengthFromOptions();
+      genStrengthEl.textContent = 'Strength: ' + s.text;
+      genStrengthEl.className = 'strength ' + s.cls;
+    });
+
+    document.getElementById('btnGenUse').addEventListener('click', () => {
+      const pw = getGeneratedPassword();
+      document.getElementById('entryPassword').value = pw;
+      const s = strengthLabel(pw);
+      genStrengthEl.textContent = 'Strength: ' + s.text;
+      genStrengthEl.className = 'strength ' + s.cls;
+    });
+
+    document.getElementById('searchBar').addEventListener('input', renderEntryList);
+    document.getElementById('filterCategory').addEventListener('change', renderEntryList);
+
+    document.getElementById('btnClearVault').addEventListener('click', () => {
+      if (!confirm('Clear all entries? This cannot be undone.')) return;
+      entries = [];
+      saveVault().then(() => renderEntryList());
+      resetInactivityTimer();
+    });
+
+    document.getElementById('btnExport').addEventListener('click', async () => {
+      await exportEncryptedBackup();
+      setSettings({ ...getSettings(), lastBackupExportAt: new Date().toISOString() });
+      checkBackupReminder();
+      resetInactivityTimer();
+    });
+
+    document.getElementById('btnImport').addEventListener('click', () => {
+      document.getElementById('fileImport').click();
+    });
+
+    document.getElementById('btnAddTag').addEventListener('click', () => {
+      const nameEl = document.getElementById('newTagName');
+      const colorEl = document.getElementById('newTagColor');
+      const name = (nameEl && nameEl.value || '').trim();
+      if (!name) return;
+      const color = (colorEl && colorEl.value) || '#a78bfa';
+      if (tags.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+        alert('A tag with this name already exists.');
+        return;
+      }
+      tags.push({ id: crypto.randomUUID(), name, color });
+      saveVault().then(() => {
+        if (nameEl) nameEl.value = '';
+        if (colorEl) colorEl.value = '#a78bfa';
+        refreshEntryTagCheckboxes();
+        renderTagsList();
+      });
+    });
+
+    document.getElementById('fileImport').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const password = prompt('Enter your master password to decrypt the backup:');
+      if (!password) return;
+      try {
+        const { entries: importedEntries, tags: importedTags } = await importEncryptedBackup(file, password);
+        entries = importedEntries;
+        tags = importedTags;
+        await saveVault();
+        renderEntryList();
+        alert('Backup imported successfully.');
+      } catch (err) {
+        alert(err.message || 'Invalid or corrupted backup');
+      }
+      resetInactivityTimer();
+    });
+
+    const PERSONALITIES = ['minimal', 'cyberpunk', 'executive', 'gamer', 'hacker', 'cozy'];
+    document.addEventListener('keydown', (e) => {
+      if (cryptoKey) resetInactivityTimer();
+      const combo = formatKeyFromEvent(e);
+      if (!combo) return;
+      const sc = getShortcuts();
+      if (combo === sc.panic) {
+        e.preventDefault();
+        if (cryptoKey) {
+          document.body.classList.add('panic-overlay');
+          setTimeout(() => { document.body.classList.remove('panic-overlay'); lock(); }, 300);
+        }
+        return;
+      }
+      if (combo === sc.lock) {
+        e.preventDefault();
+        if (cryptoKey) lock();
+        return;
+      }
+      if (combo === sc.cycleTheme) {
+        e.preventDefault();
+        const s = getSettings();
+        const idx = PERSONALITIES.indexOf(s.personality || 'minimal');
+        const next = PERSONALITIES[(idx + 1) % PERSONALITIES.length];
+        setSettings({ ...s, personality: next });
+        document.getElementById('settingPersonality').value = next;
+        applyPersonality();
+        return;
+      }
+      if (combo === sc.focusSearch) {
+        e.preventDefault();
+        const searchEl = document.getElementById('searchBar');
+        if (searchEl && document.getElementById('screenVault').classList.contains('active')) {
+          searchEl.focus();
+        }
+        return;
+      }
+      if (combo === sc.addEntry) {
+        e.preventDefault();
+        if (document.getElementById('screenVault').classList.contains('active')) {
+          const site = document.getElementById('entrySite');
+          if (site) { site.focus(); site.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }
+        return;
+      }
+    });
+    document.addEventListener('click', () => { if (cryptoKey) resetInactivityTimer(); });
+    document.addEventListener('input', () => { if (cryptoKey) resetInactivityTimer(); });
+
+    const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    let konamiIndex = 0;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === KONAMI[konamiIndex]) {
+        konamiIndex++;
+        if (konamiIndex === KONAMI.length) {
+          konamiIndex = 0;
+          document.body.classList.add('konami-effect');
+          setTimeout(() => document.body.classList.remove('konami-effect'), 2000);
+        }
+      } else {
+        konamiIndex = 0;
+      }
+    });
+
+    // ========== 6. INIT ==========
+    const CHANGELOG_ENTRIES = [
+      { date: 'Feb 16, 2026 10:00 PM ET', bullets: ['Changelog added inside the app (Settings area). Remember me on this device (until you clear it or reset PC). Eye icon on master password fields (Setup and Unlock).'] },
+      { date: 'Feb 16, 2026 9:45 PM ET', bullets: ['Show/Hide password is now an eye icon (closed = hidden, open = visible) on the Add entry form and each entry row.', 'Categories are now custom: type any name; suggestions from your entries appear.'] },
+      { date: 'Feb 16, 2026 9:26 PM ET', bullets: ['Show/Hide toggle for the Add entry password field. Changelog file (CHANGELOG.md) added.'] },
+      { date: 'Feb 16, 2026 8:15 PM ET', bullets: ['Full-screen layout (1920×1080), two-column vault, dark theme and UI cleanup.'] },
+      { date: 'Feb 16, 2026 6:00 PM ET', bullets: ['Initial release: encrypted vault, master password, entries, search, filter, password generator, backup export/import, auto-lock after 5 min.'] }
+    ];
+
+    function getChangelogHtml() {
+      return CHANGELOG_ENTRIES.map(entry => {
+        const bullets = entry.bullets.map(b => '<div class="changelog-bullet">' + escapeHtml(b) + '</div>').join('');
+        return '<div class="changelog-entry"><div class="changelog-date">' + escapeHtml(entry.date) + '</div>' + bullets + '</div>';
+      }).join('');
+    }
+
+    function initChangelog() {
+      const toggle = document.getElementById('changelogToggle');
+      const content = document.getElementById('changelogContent');
+      if (!toggle || !content) return;
+      content.innerHTML = getChangelogHtml();
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('collapsed');
+        content.classList.toggle('collapsed');
+      });
+    }
+
+    async function init() {
+      if (!crypto.subtle) {
+        document.body.innerHTML = '<div class="screen active"><div class="card"><p class="error">This app requires a modern secure browser (e.g. Chrome, Opera, Edge) with Web Crypto API.</p></div></div>';
+        return;
+      }
+      initChangelog();
+      initSettings();
+      applyNightMode();
+      if (hasVault()) {
+        const remembered = getRememberedPassword();
+        if (remembered) {
+          const ok = await unlockWithPassword(remembered);
+          if (ok) {
+            showScreen('home');
+            return;
+          }
+          clearRememberedPassword();
+        }
+        showScreen('unlock');
+      } else {
+        showScreen('setup');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

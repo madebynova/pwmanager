@@ -1,0 +1,21 @@
+{
+  "name": "cosmic-cartel",
+  "version": "1.0.0",
+  "description": "A space trading game built with Electron",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "game",
+    "space",
+    "trading",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}
